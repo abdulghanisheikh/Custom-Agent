@@ -8,5 +8,9 @@
   "keywords": [],
   "author": "Abdul Ghani",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "@langchain/core": "^1.1.7",
+    "@langchain/langgraph": "^1.0.7"
+  }
 }
