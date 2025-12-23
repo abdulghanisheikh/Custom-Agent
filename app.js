@@ -4,14 +4,16 @@ import dotenv from "dotenv";
 import readline from "readline/promises";
 import { ChatGroq } from "@langchain/groq";
 import {TavilySearch} from "@langchain/tavily";
+import { MemorySaver } from "@langchain/langgraph";
 
 dotenv.config();
-const tool=new TavilySearch({
+//Here, TravilySearch is used to enable web-search
+const webSearch=new TavilySearch({
     apiKey:process.env.TRAVILY_API_KEY,
     maxResults:3,
     topic:"general"
 });
-const tools=[tool]; //web search, DB, etc.
+const tools=[webSearch]; //Tools such as web-search, DB, etc
 const toolNode=new ToolNode(tools);
 
 const llm=new ChatGroq({
@@ -28,8 +30,8 @@ async function callModel(state){ //state is just mantaining the array of convers
 
 //Condition for conditional edge
 function shouldContinue(state){
-    const res=state.messages[1].content;
-    if(res==="") return "tools";
+    const toolCalls=state.messages[state.messages.length-1].tool_calls;
+    if(toolCalls.length>0) return "tools";
     else return "__end__";
 }
 
@@ -37,10 +39,12 @@ function shouldContinue(state){
 const workflow=new StateGraph(MessagesAnnotation)
     .addNode("tools",toolNode)
     .addNode("agent",callModel)
-    .addEdge("__start__","agent")
-    .addEdge("agent","__end__")
-    .addConditionalEdges("agent",shouldContinue);
-const agent=workflow.compile();
+    .addEdge("__start__","agent") //start->agent
+    .addConditionalEdges("agent",shouldContinue) //agent->tools OR agent->end
+    .addEdge("tools","agent"); //tools->agent
+    
+const checkpointer=new MemorySaver();
+const graph=workflow.compile({ checkpointer });
 
 async function main(){
     const rl=readline.createInterface({
@@ -50,15 +54,17 @@ async function main(){
     while(true){
         const userInput=await rl.question("You: ");
         if(userInput==="/bye") break;
-        const finalState=await agent.invoke({
+        const finalState=await graph.invoke({
             messages:[{
                 role:"user",
-                content:userInput 
+                content:userInput
             }]
+        },{
+            configurable:{thread_id:"1"} //This is my conversation id
         });
         const lastMessage=finalState.messages[finalState.messages.length-1];
-        const {content}=lastMessage
-        console.log("AI: ",content);
+        const {content}=lastMessage;
+        console.log("Agent: ",content);
     }
     rl.close();
 }
