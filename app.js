@@ -1,9 +1,19 @@
-const { StateGraph, MessagesAnnotation }=require("@langchain/langgraph");
-const readline=require("readline/promises");
+import { StateGraph, MessagesAnnotation } from "@langchain/langgraph";
+import dotenv from "dotenv";
+import readline from "readline/promises";
+import { ChatGroq } from "@langchain/groq";
 
-function callModel(state){
-    console.log("calling LLM...");
-    return state;
+dotenv.config();
+const llm=new ChatGroq({
+    apiKey:process.env.GROQ_API_KEY,
+    model:"openai/gpt-oss-120b",
+    temperature:0,
+    maxRetries:2
+});
+
+async function callModel(state){ //state is just mantaining the array of conversation between User and AI
+    const response=await llm.invoke(state.messages);
+    return { messages:[response] }; //state updated with the AI message
 }
 
 //Making graph/workflow using StateGraph
@@ -16,7 +26,7 @@ const agent=workflow.compile();
 async function main(){
     const rl=readline.createInterface({
         input:process.stdin,
-        output:process.stdout 
+        output:process.stdout
     });
     while(true){
         const userInput=await rl.question("You: ");
@@ -27,7 +37,9 @@ async function main(){
                 content:userInput
             }]
         });
-        console.log("final: ",finalState);
+        const lastMessage=finalState.messages[finalState.messages.length-1];
+        const {content}=lastMessage
+        console.log("AI: ",content);
     }
     rl.close();
 }
