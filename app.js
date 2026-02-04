@@ -1,12 +1,12 @@
-import { StateGraph, MessagesAnnotation } from "@langchain/langgraph";
+import { StateGraph,MessagesAnnotation } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import dotenv from "dotenv";
+import { config } from "dotenv";
 import readline from "readline/promises";
 import { ChatGroq } from "@langchain/groq";
-import {TavilySearch} from "@langchain/tavily";
+import { TavilySearch } from "@langchain/tavily";
 import { MemorySaver } from "@langchain/langgraph";
+config();
 
-dotenv.config();
 //Here, TravilySearch is used to enable web-search
 const webSearch=new TavilySearch({
     apiKey:process.env.TRAVILY_API_KEY,
@@ -35,7 +35,7 @@ function shouldContinue(state){
     else return "__end__";
 }
 
-//Making graph/workflow using StateGraph
+//Making workflow using StateGraph
 const workflow=new StateGraph(MessagesAnnotation)
     .addNode("tools",toolNode)
     .addNode("agent",callModel)
@@ -62,8 +62,7 @@ async function main(){
         },{
             configurable:{thread_id:"1"} //This is my conversation id
         });
-        const lastMessage=finalState.messages[finalState.messages.length-1];
-        const {content}=lastMessage;
+        const {content}=finalState.messages[finalState.messages.length-1];
         console.log("Agent: ",content);
     }
     rl.close();
